@@ -31,8 +31,24 @@ export class FridgeTrackStack extends Stack {
             }
         });
 
+        const listProductsFunction = new Function(this, 'ListProductsFunction', {
+            runtime: Runtime.NODEJS_14_X,
+            handler: 'app.handler',
+            code: this.getLambdaCode(
+                '/home/robbie/dev/fridge-track/lambdas/list-products',
+                'lambdas/list-products',
+                localBucket
+            ),
+            timeout: Duration.seconds(10),
+            environment: {
+                'PRODUCT_TABLE_NAME': productTable.tableName
+            }
+        });
+
         productTable.grantWriteData(createProductFunction);
+        productTable.grantReadData(listProductsFunction);
         const createProductIntegration = new LambdaIntegration(createProductFunction);
+        const listProductsIntegration = new LambdaIntegration(listProductsFunction);
 
         const api = new RestApi(this, 'FridgeTrackAPI', {
             restApiName: 'Fridge Track Service',
@@ -43,8 +59,11 @@ export class FridgeTrackStack extends Stack {
             },
         });
 
-        const tickersApiResource = api.root.addResource('products');
-        tickersApiResource.addMethod('POST', createProductIntegration);
+        const productsApiResource = api.root.addResource('products');
+        productsApiResource.addMethod('POST', createProductIntegration);
+        const productsListApiResource = productsApiResource.addResource('list');
+        productsListApiResource.addMethod('GET', listProductsIntegration)
+
     }
 
     private getLambdaCode(local_fp: string, asset_p: string, localBucket: IBucket): Code {

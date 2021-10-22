@@ -1,5 +1,4 @@
 const AWS = require('aws-sdk');
-const { v4: uuidv4 } = require('uuid');
 const ProductsTableName = process.env.PRODUCT_TABLE_NAME;
 
 let dynamoDbClient;
@@ -20,32 +19,21 @@ exports.handler = async (event, context) => {
         headers: {
             'Access-Control-Allow-Headers' : 'Content-Type',
             'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'OPTIONS,POST'
+            'Access-Control-Allow-Methods': 'OPTIONS,GET'
         }
     };
     try {
-        console.log('Received event:', JSON.stringify(event, null, 2));
-        requestData = JSON.parse(event.body);
-
         var params = {
             TableName: ProductsTableName,
-            Item: {
-                id: {
-                    S: uuidv4()
-                },
-                name: {
-                    S: requestData.name
-                },
-                expiry: {
-                    S: new Date(requestData.expiry).toISOString()
-                }
+            ProjectionExpression: 'id, #n, expiry',
+            ExpressionAttributeNames: {
+                '#n': 'name'
             }
         }
         console.log(params);
-        console.log(`Putting item in DynamoDB table ${params.TableName}`);
-        await dbClient.putItem(params).promise();
+        const data = await dbClient.scan(params).promise()
         response.statusCode = 200;
-        response.body = "Success";
+        response.body = JSON.stringify(data);
     } catch (err) {
         console.log(err);
         response.statusCode = 500;
